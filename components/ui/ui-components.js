@@ -5,7 +5,7 @@ import * as SheetPrimitive from "@radix-ui/react-dialog"
 import * as SelectPrimitive from "@radix-ui/react-select"
 import { Slot } from "@radix-ui/react-slot"
 import { cva } from "class-variance-authority"
-import { X } from "lucide-react"
+import { X, ChevronDown, Check } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
