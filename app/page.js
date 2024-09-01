@@ -1,113 +1,230 @@
-import Image from "next/image";
+'use client'
+
+import React, { useState, useEffect } from 'react';
+import { Plus, Trash2, Edit, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 
 export default function Home() {
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.js</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+  const [projects, setProjects] = useState([]);
+  const [isAddingProject, setIsAddingProject] = useState(false);
+  const [isEditingProject, setIsEditingProject] = useState(null);
+  const [newProject, setNewProject] = useState({
+    name: '',
+    type: '',
+    rate: '',
+    dates: [],
+  });
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  useEffect(() => {
+    const savedProjects = localStorage.getItem('projects');
+    if (savedProjects) {
+      try {
+        const parsedProjects = JSON.parse(savedProjects);
+        setProjects(Array.isArray(parsedProjects) ? parsedProjects : []);
+      } catch (error) {
+        console.error('Error parsing saved projects:', error);
+        setProjects([]);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('projects', JSON.stringify(projects));
+  }, [projects]);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewProject(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleTypeChange = (value) => {
+    setNewProject(prev => ({ ...prev, type: value, dates: [] }));
+  };
+
+  const addProject = () => {
+    if (newProject.name && newProject.type && newProject.rate) {
+      setProjects(prev => [...prev, { ...newProject, id: Date.now(), dates: [] }]);
+      setNewProject({ name: '', type: '', rate: '', dates: [] });
+      setIsAddingProject(false);
+    }
+  };
+
+  const removeProject = (id) => {
+    setProjects(prev => prev.filter(project => project.id !== id));
+  };
+
+  const toggleProjectDate = (projectId, date) => {
+    setProjects(prev => prev.map(project => {
+      if (project.id === projectId) {
+        const dateStr = date.toISOString().split('T')[0];
+        let newDates = [...project.dates];
+        const dateIndex = newDates.findIndex(d => d.date === dateStr);
+        
+        if (dateIndex === -1) {
+          newDates.push({ date: dateStr, paid: false });
+        } else if (!newDates[dateIndex].paid) {
+          newDates[dateIndex].paid = true;
+        } else {
+          newDates = newDates.filter(d => d.date !== dateStr);
+        }
+        
+        return { ...project, dates: newDates };
+      }
+      return project;
+    }));
+  };
+
+  const CustomCalendar = ({ project }) => {
+    if (!project) return null;
+
+    const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+    const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
+    const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+    const getDayStatus = (day) => {
+      const dateStr = new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toISOString().split('T')[0];
+      const dateObj = project.dates.find(d => d.date === dateStr);
+      if (dateObj) {
+        return dateObj.paid ? 'paid' : 'booked';
+      }
+      return 'normal';
+    };
+
+    return (
+      <div className="mt-4">
+        <div className="flex justify-between items-center mb-4">
+          <Button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-lg font-bold">{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+          <Button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="grid grid-cols-7 gap-2">
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+            <div key={day} className="text-center font-bold text-sm">{day}</div>
+          ))}
+          {Array(firstDayOfMonth).fill(null).map((_, index) => (
+            <div key={`empty-${index}`}></div>
+          ))}
+          {days.map(day => {
+            const status = getDayStatus(day);
+            return (
+              <Button
+                key={day}
+                onClick={() => {
+                  const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                  toggleProjectDate(project.id, date);
+                }}
+                className={`h-10 w-full text-sm font-medium ${
+                  status === 'paid' ? 'bg-green-500 hover:bg-green-600 text-white' :
+                  status === 'booked' ? 'bg-red-500 hover:bg-red-600 text-white' :
+                  'bg-white hover:bg-gray-100 text-black border border-gray-300'
+                }`}
+              >
+                {day}
+              </Button>
+            );
+          })}
         </div>
       </div>
+    );
+  };
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
+  return (
+    <div className="p-4 max-w-md mx-auto">
+      <header className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Summon</h1>
+      </header>
+
+      <Button onClick={() => setIsAddingProject(true)} className="w-full mb-4 py-6 text-lg">
+        <Plus className="mr-2 h-6 w-6" /> Add New Project
+      </Button>
+      
+      <Sheet open={isAddingProject} onOpenChange={setIsAddingProject}>
+        <SheetContent side="bottom" className="h-[90vh] sm:h-[90vh] sm:max-w-none">
+          <SheetHeader>
+            <SheetTitle>Add New Project</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-6 mt-6">
+            <Input
+              placeholder="Project Name"
+              name="name"
+              value={newProject.name}
+              onChange={handleInputChange}
+              className="text-lg py-6"
+            />
+            <Select onValueChange={handleTypeChange} value={newProject.type}>
+              <SelectTrigger className="text-lg py-6">
+                <SelectValue placeholder="Project Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="per_day">Per Day</SelectItem>
+                <SelectItem value="per_week">Per Week</SelectItem>
+                <SelectItem value="per_project">Per Project</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Rate"
+              name="rate"
+              type="number"
+              value={newProject.rate}
+              onChange={handleInputChange}
+              className="text-lg py-6"
+            />
+            <Button onClick={addProject} className="w-full py-6 text-lg">Add Project</Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <div className="space-y-4">
+        {projects.map((project) => (
+          <Card key={project.id}>
+            <CardHeader>
+              <CardTitle className="flex justify-between items-center">
+                <span>{project.name}</span>
+                <div>
+                  <Button variant="ghost" size="sm" onClick={() => setIsEditingProject(project.id)}>
+                    <Edit className="h-5 w-5" />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => removeProject(project.id)}>
+                    <Trash2 className="h-5 w-5" />
+                  </Button>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p><strong>Type:</strong> {project.type}</p>
+              <p><strong>Rate:</strong> ${project.rate}</p>
+              <p><strong>Total Days:</strong> {project.dates.length}</p>
+              <p><strong>Paid Days:</strong> {project.dates.filter(d => d.paid).length}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800 hover:dark:bg-opacity-30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+      <Sheet open={isEditingProject !== null} onOpenChange={() => setIsEditingProject(null)}>
+        <SheetContent side="bottom" className="h-[90vh] sm:h-[90vh] sm:max-w-none">
+          <SheetHeader>
+            <SheetTitle>Edit Project</SheetTitle>
+          </SheetHeader>
+          {isEditingProject !== null && (
+            <div className="mt-6">
+              <CustomCalendar project={projects.find(p => p.id === isEditingProject)} />
+              <div className="mt-4">
+                <p>Click on a day to cycle through: Not booked → Booked → Paid → Not booked</p>
+                <p>White: Not booked, Red: Booked but not paid, Green: Paid</p>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }
